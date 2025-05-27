@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Blueprint
 from PIL import Image
 import io
 import os
@@ -108,14 +108,44 @@ def apply_gradcam(heatmap, original_img):
     return superimposed_img
 
 
-@app.route('/')
+# =====================================================================
+# CONFIGURACIÓN DE BLUEPRINT CON PREFIJO
+# =====================================================================
+
+# Obtener el prefijo desde variable de entorno o usar por defecto
+SUBPATH = os.environ.get('ULSA_SUBPATH', '/binit')
+
+# Crear Blueprint con el prefijo
+binit_bp = Blueprint('binit', __name__, url_prefix=SUBPATH)
+
+
+@binit_bp.route('/')
 def index():
+    """Página principal de la aplicación BinIt"""
     return render_template('index.html')
 
 
-@app.route('/predict', methods=['POST'])
+@binit_bp.route('/health')
+def health_check():
+    """Endpoint de salud para monitoreo"""
+    return jsonify({
+        'status': 'healthy',
+        'service': 'binit-ai',
+        'endpoints': {
+            'main': f'{SUBPATH}/',
+            'predict': f'{SUBPATH}/predict',
+            'save_image': f'{SUBPATH}/save_image',
+            'health': f'{SUBPATH}/health'
+        }
+    })
+
+
+@binit_bp.route('/predict', methods=['POST'])
 def predict():
     try:
+        # Breakpoint para debugging - puedes poner aquí un punto de interrupción
+        print("🔍 DEBUG: Iniciando predicción...")
+        
         # Procesar imagen
         pil_image = Image.open(io.BytesIO(request.data)).convert('RGB')
         pil_image = pil_image.resize(TARGET_SIZE)
@@ -130,6 +160,9 @@ def predict():
         idx = np.argmax(y)
         confidence = float(y[idx])
 
+        # Breakpoint para debugging - aquí puedes ver la predicción
+        print(f"🔍 DEBUG: Predicción - idx: {idx}, confidence: {confidence}")
+
         if confidence <= 0.5:
             class_name = 'OTHER'
         else:
@@ -143,18 +176,23 @@ def predict():
         _, buffer = cv2.imencode('.jpg', cv2.cvtColor(grad_img, cv2.COLOR_RGB2BGR))
         img_str = base64.b64encode(buffer).decode('utf-8')
 
-        return jsonify({
+        result = {
             'label': class_name,
             'confidence': round(confidence * 100, 2),
             'gradcam': img_str
-        })
+        }
+        
+        print(f"🔍 DEBUG: Resultado final - {result['label']} con {result['confidence']}% confianza")
+        
+        return jsonify(result)
 
     except Exception as e:
+        print(f"⁉️ Error: {str(e)}")
         app.logger.error(f"Error en /predict: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/save_image', methods=['POST'])
+@binit_bp.route('/save_image', methods=['POST'])
 def save_image():
     try:
         if 'image' not in request.files:
@@ -201,5 +239,17 @@ def save_image():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+# =====================================================================
+# RUTA DE ESTADO EN LA RAÍZ (para healthcheck de Docker)
+# =====================================================================
+@app.route('/')
+def root_health():
+    """Endpoint de salud en la raíz para healthcheck de Docker"""
+    return jsonify({
+        'status': 'healthy',
+        'service': 'binit-ai-container'
+    })
+
+
+# Registrar el blueprint
+app.register_blueprint(binit_bp)

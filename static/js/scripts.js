@@ -81,7 +81,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // }
 
     sendCanvas.toBlob((blob) => {
-      fetch("/predict", {
+      fetch("/binit/predict", {
         method: "POST",
         body: blob,
       })
@@ -167,7 +167,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const formData = new FormData();
         formData.append("image", blob, "image.jpg");
         formData.append("correct_class", classToSave);
-        fetch("/save_image", { method: "POST", body: formData })
+        fetch("/binit/save_image", { method: "POST", body: formData })
           .then((res) => res.json())
           .then((data) => console.log("Respuesta de /save_image:", data))
           .catch((err) => console.error("Error en fetch /save_image:", err));
