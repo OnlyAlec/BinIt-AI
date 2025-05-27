@@ -5,18 +5,21 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Python Debugger: Flask",
+      "name": "Python Debugger: Remote Attach",
       "type": "debugpy",
-      "request": "launch",
-      "module": "flask",
-      "cwd": "${workspaceFolder}/web/",
-      "env": {
-        "FLASK_APP": "web/app.py",
-        "FLASK_DEBUG": "1"
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
       },
-      "args": ["run", "--no-debugger", "--no-reload"],
-      "jinja": true,
-      "autoStartBrowser": false
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}",
+          "remoteRoot": "/app"
+        }
+      ],
+      "justMyCode": false,
+      "django": false
     }
   ]
 }
