@@ -1,0 +1,53 @@
+Bienvenida.mp3
+¡Bienvenido a BinIt!, donde cada escaneo cuenta para un mundo mas limpio
+---
+Bingo.mp3
+Resultado final. ¡Bingo! ¿Es correcto?
+---
+Bolsa-de-Plastico.mp3
+Bolsa de platisco
+---
+Botella-de-plastico.mp3
+Botella de platico
+---
+Carton.mp3
+Carton
+---
+Deposita-en.mp3
+Deposita en
+---
+Envoltorio.mp3
+Envoltorio
+---
+Instrucciones.mp3
+¿Como usar BinIt? Primero coloca tu residuo en la zona de deteccion para empezar, despues cuando el objeto este quieto se procesara automaticamente. Al final verifique resultado obtenido
+---
+Metal.mp3
+Metal
+---
+Organica.mp3
+Organica
+---
+Otro.mp3
+Otro
+---
+Papel.mp3
+Papel
+---
+Para-escritura.mp3
+Para escritura, es decir, plumones, lapices, etc
+---
+Procesando.mp3
+Procesando manten quieto el objeto para una mejor identificacion, nuestros algoritmos verdes estan trabajando para identificar este residuo
+---
+Residuo.mp3
+Residuo
+---
+Selecciona-una-opcion.mp3
+Selecciona una opcion para continuar, tienes 120 segundos
+---
+Unicel.mp3
+Unicel
+---
+Vidrio.mp3
+Vidrio

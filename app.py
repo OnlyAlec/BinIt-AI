@@ -9,6 +9,7 @@ from tensorflow.keras.models import load_model
 import tensorflow as tf
 from tensorflow.keras.applications.efficientnet import preprocess_input
 from flask_cors import CORS
+from voice import getNewLangAudio, get_supported_languages_map
 
 
 app = Flask(__name__)
@@ -139,6 +140,42 @@ def health_check():
         }
     })
 
+@binit_bp.route('/lang', methods=['GET'])
+def listLang():
+    return jsonify(get_supported_languages_map())
+
+@binit_bp.route('/voice', methods=['POST'])
+def generate_voice():
+    try:
+        data = request.get_json()
+        lang = data.get('lang', '')
+        
+        if not lang:
+            app.logger.error('No se especificó el idioma')
+            return jsonify({'error': 'No se especificó el idioma'}), 400
+        
+        # Usar la nueva función para generar todos los audios
+        from voice import generate_all_audios_for_language
+        result = generate_all_audios_for_language(lang, app.logger)
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'message': f'Audios generados exitosamente para {lang}',
+                'generated_files': result['generated_files'],
+                'total_generated': result['total_generated'],
+                'errors': result['errors']
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.get('error', 'Error desconocido'),
+                'errors': result.get('errors', [])
+            }), 500
+            
+    except Exception as e:
+        app.logger.error(f"Error en /voice: {str(e)}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
 
 @binit_bp.route('/predict', methods=['POST'])
 def predict():

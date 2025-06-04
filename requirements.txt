@@ -4,3 +4,9 @@ numpy
 opencv-python
 tensorflow
 flask-cors
+coqui-tts
+cutlet
+fugashi
+deep-translator
+dotenv
+pypinyin
