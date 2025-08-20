@@ -5,11 +5,11 @@ import os
 import numpy as np
 import cv2
 import base64
-from tensorflow.keras.models import load_model
 import tensorflow as tf
 from tensorflow.keras.applications.efficientnet import preprocess_input
+from tensorflow.keras.applications import EfficientNetB0
 from flask_cors import CORS
-from voice import getNewLangAudio, get_supported_languages_map
+from .voice import getNewLangAudio, get_supported_languages_map
 
 
 app = Flask(__name__)
@@ -19,12 +19,12 @@ CORS(app)
 # CONFIGURACIÓN GRAD-CAM
 # =====================================================================
 TARGET_SIZE = (255, 255)
-LAST_CONV_LAYER = 'top_activation'
+LAST_CONV_LAYER = "top_activation"
 GAUSSIAN_KERNEL_SIZE = (3, 3)
 GAUSSIAN_SIGMA = 0
 ALPHA = 1
 BETA = 0
-THRESH_METHOD = 'otsu'
+THRESH_METHOD = "otsu"
 FIXED_THRESH = 127
 MORPH_KERNEL_SIZE = (5, 5)
 MORPH_OPERATION = cv2.MORPH_CLOSE
@@ -34,27 +34,51 @@ BBOX_THICKNESS = 2
 COLORMAP = cv2.COLORMAP_JET
 # =====================================================================
 
-# Cargar modelo
-model = load_model('model.h5')
-grad_model = tf.keras.models.Model(
-    inputs=model.input,
-    outputs=[model.get_layer(LAST_CONV_LAYER).output, model.output]
-)
-
 # Lista de clases
 CLASS_NAMES = [
-    'CARDBOARD',
-    'GLASS',
-    'METAL',
-    'ORGANIC',
-    'PAPER',
-    'PEN',
-    'PET',
-    'PLASTIC_BAG',
-    'UNICEL',
-    'WRAPPER',
-    'OTHER'
+    "CARDBOARD",
+    "GLASS",
+    "METAL",
+    "ORGANIC",
+    "PAPER",
+    "PEN",
+    "PET",
+    "PLASTIC_BAG",
+    "UNICEL",
+    "WRAPPER",
+    "OTHER",
 ]
+
+MODEL_PATH = os.environ.get("BINIT_MODEL_PATH", "/app/app/model.h5")
+SUBPATH = os.environ.get("ULSA_SUBPATH", "/binit")
+
+
+def _build_efficientnet_model(input_shape, num_classes):
+    base = EfficientNetB0(include_top=False, weights=None, input_shape=input_shape)
+    x = tf.keras.layers.GlobalAveragePooling2D(name="avg_pool")(base.output)
+    outputs = tf.keras.layers.Dense(num_classes, activation="softmax", name="pred")(x)
+    return tf.keras.Model(
+        inputs=base.input, outputs=outputs, name="binit_efficientnetb0"
+    )
+
+
+def _load_binit_model():
+    try:
+        print(f"Loading full model from: {MODEL_PATH}")
+        return tf.keras.models.load_model(MODEL_PATH, compile=False)
+    except Exception as e:
+        print(f"Full model load failed: {e}")
+        print("Rebuilding EfficientNetB0 with RGB input and loading weights...")
+        model = _build_efficientnet_model(
+            input_shape=(TARGET_SIZE[0], TARGET_SIZE[1], 3),
+            num_classes=len(CLASS_NAMES),
+        )
+        try:
+            model.load_weights(MODEL_PATH)
+        except Exception as e2:
+            print(f"Strict weight load failed: {e2}")
+            model.load_weights(MODEL_PATH, by_name=True, skip_mismatch=True)
+        return model
 
 
 def make_gradcam_heatmap(img_array):
@@ -85,8 +109,10 @@ def apply_gradcam(heatmap, original_img):
     superimposed_img = cv2.addWeighted(original_img, ALPHA, heatmap_color, BETA, 0)
 
     # Thresholding y bounding box
-    if THRESH_METHOD == 'otsu':
-        _, thresh = cv2.threshold(heatmap_uint8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    if THRESH_METHOD == "otsu":
+        _, thresh = cv2.threshold(
+            heatmap_uint8, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
+        )
     else:
         _, thresh = cv2.threshold(heatmap_uint8, FIXED_THRESH, 255, cv2.THRESH_BINARY)
 
@@ -101,90 +127,101 @@ def apply_gradcam(heatmap, original_img):
 
         x = max(0, x - MARGIN)
         y = max(0, y - MARGIN)
-        w = min(original_img.shape[1] - x, w + 2*MARGIN)
-        h = min(original_img.shape[0] - y, h + 2*MARGIN)
+        w = min(original_img.shape[1] - x, w + 2 * MARGIN)
+        h = min(original_img.shape[0] - y, h + 2 * MARGIN)
 
-        cv2.rectangle(superimposed_img, (x, y), (x+w, y+h), BBOX_COLOR, BBOX_THICKNESS)
+        cv2.rectangle(
+            superimposed_img, (x, y), (x + w, y + h), BBOX_COLOR, BBOX_THICKNESS
+        )
 
     return superimposed_img
 
 
-# =====================================================================
-# CONFIGURACIÓN DE BLUEPRINT CON PREFIJO
-# =====================================================================
-
-# Obtener el prefijo desde variable de entorno o usar por defecto
-SUBPATH = os.environ.get('ULSA_SUBPATH', '/binit')
+# Cargar modelo
+model = _load_binit_model()
+grad_model = tf.keras.models.Model(
+    inputs=model.input, outputs=[model.get_layer(LAST_CONV_LAYER).output, model.output]
+)
 
 # Crear Blueprint con el prefijo
-binit_bp = Blueprint('binit', __name__, url_prefix=SUBPATH)
+binit_bp = Blueprint("binit", __name__, url_prefix=SUBPATH)
 
 
-@binit_bp.route('/')
+@binit_bp.route("/")
 def index():
     """Página principal de la aplicación BinIt"""
-    return render_template('index.html')
+    return render_template("index.html")
 
 
-@binit_bp.route('/health')
+@binit_bp.route("/health")
 def health_check():
     """Endpoint de salud para monitoreo"""
-    return jsonify({
-        'status': 'healthy',
-        'service': 'binit-ai',
-        'endpoints': {
-            'main': f'{SUBPATH}/',
-            'predict': f'{SUBPATH}/predict',
-            'save_image': f'{SUBPATH}/save_image',
-            'health': f'{SUBPATH}/health'
+    return jsonify(
+        {
+            "status": "healthy",
+            "service": "binit-ai",
+            "endpoints": {
+                "main": f"{SUBPATH}/",
+                "predict": f"{SUBPATH}/predict",
+                "save_image": f"{SUBPATH}/save_image",
+                "health": f"{SUBPATH}/health",
+            },
         }
-    })
+    )
 
-@binit_bp.route('/lang', methods=['GET'])
+
+@binit_bp.route("/lang", methods=["GET"])
 def listLang():
     return jsonify(get_supported_languages_map())
 
-@binit_bp.route('/voice', methods=['POST'])
+
+@binit_bp.route("/voice", methods=["POST"])
 def generate_voice():
     try:
         data = request.get_json()
-        lang = data.get('lang', '')
-        
+        lang = data.get("lang", "")
+
         if not lang:
-            app.logger.error('No se especificó el idioma')
-            return jsonify({'error': 'No se especificó el idioma'}), 400
-        
+            app.logger.error("No se especificó el idioma")
+            return jsonify({"error": "No se especificó el idioma"}), 400
+
         # Usar la nueva función para generar todos los audios
         from voice import generate_all_audios_for_language
+
         result = generate_all_audios_for_language(lang, app.logger)
-        
-        if result['success']:
-            return jsonify({
-                'success': True,
-                'message': f'Audios generados exitosamente para {lang}',
-                'generated_files': result['generated_files'],
-                'total_generated': result['total_generated'],
-                'errors': result['errors']
-            })
+
+        if result["success"]:
+            return jsonify(
+                {
+                    "success": True,
+                    "message": f"Audios generados exitosamente para {lang}",
+                    "generated_files": result["generated_files"],
+                    "total_generated": result["total_generated"],
+                    "errors": result["errors"],
+                }
+            )
         else:
-            return jsonify({
-                'success': False,
-                'error': result.get('error', 'Error desconocido'),
-                'errors': result.get('errors', [])
-            }), 500
-            
+            return jsonify(
+                {
+                    "success": False,
+                    "error": result.get("error", "Error desconocido"),
+                    "errors": result.get("errors", []),
+                }
+            ), 500
+
     except Exception as e:
         app.logger.error(f"Error en /voice: {str(e)}")
-        return jsonify({'error': 'Error interno del servidor'}), 500
+        return jsonify({"error": "Error interno del servidor"}), 500
 
-@binit_bp.route('/predict', methods=['POST'])
+
+@binit_bp.route("/predict", methods=["POST"])
 def predict():
     try:
         # Breakpoint para debugging - puedes poner aquí un punto de interrupción
         print("🔍 DEBUG: Iniciando predicción...")
-        
+
         # Procesar imagen
-        pil_image = Image.open(io.BytesIO(request.data)).convert('RGB')
+        pil_image = Image.open(io.BytesIO(request.data)).convert("RGB")
         pil_image = pil_image.resize(TARGET_SIZE)
         original_img = np.array(pil_image)
 
@@ -201,7 +238,7 @@ def predict():
         print(f"🔍 DEBUG: Predicción - idx: {idx}, confidence: {confidence}")
 
         if confidence <= 0.5:
-            class_name = 'OTHER'
+            class_name = "OTHER"
         else:
             class_name = CLASS_NAMES[idx]
 
@@ -210,52 +247,56 @@ def predict():
         grad_img = apply_gradcam(heatmap, original_img)
 
         # Convertir a base64
-        _, buffer = cv2.imencode('.jpg', cv2.cvtColor(grad_img, cv2.COLOR_RGB2BGR))
-        img_str = base64.b64encode(buffer).decode('utf-8')
+        _, buffer = cv2.imencode(".jpg", cv2.cvtColor(grad_img, cv2.COLOR_RGB2BGR))
+        img_str = base64.b64encode(buffer).decode("utf-8")
 
         result = {
-            'label': class_name,
-            'confidence': round(confidence * 100, 2),
-            'gradcam': img_str
+            "label": class_name,
+            "confidence": round(confidence * 100, 2),
+            "gradcam": img_str,
         }
-        
-        print(f"🔍 DEBUG: Resultado final - {result['label']} con {result['confidence']}% confianza")
-        
+
+        print(
+            f"🔍 DEBUG: Resultado final - {result['label']} con {result['confidence']}% confianza"
+        )
+
         return jsonify(result)
 
     except Exception as e:
         print(f"⁉️ Error: {str(e)}")
         app.logger.error(f"Error en /predict: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@binit_bp.route('/save_image', methods=['POST'])
+@binit_bp.route("/save_image", methods=["POST"])
 def save_image():
     try:
-        if 'image' not in request.files:
-            return jsonify({'success': False, 'error': 'No se recibió imagen'}), 400
+        if "image" not in request.files:
+            return jsonify({"success": False, "error": "No se recibió imagen"}), 400
 
         # Obtener imagen y clase
-        image_file = request.files['image']
-        correct_class = request.form.get('correct_class').upper()
+        image_file = request.files["image"]
+        correct_class = request.form.get("correct_class").upper()
 
         print(f"Clase recibida: {correct_class}")
 
         # Validar clase
         if correct_class not in CLASS_NAMES:
-            return jsonify({'success': False, 'error': f'Clase no válida: {correct_class}'}), 400
+            return jsonify(
+                {"success": False, "error": f"Clase no válida: {correct_class}"}
+            ), 400
 
         dir_name = correct_class
-        save_dir = os.path.join('training_data', dir_name)
+        save_dir = os.path.join("training_data", dir_name)
         os.makedirs(save_dir, exist_ok=True)
 
         # Encontrar siguiente número incremental
         max_num = 0
         existing_files = os.listdir(save_dir)
         for f in existing_files:
-            if f.startswith(f"{correct_class}_") and f.endswith('.jpg'):
+            if f.startswith(f"{correct_class}_") and f.endswith(".jpg"):
                 try:
-                    num = int(f.split('_')[1].split('.')[0])
+                    num = int(f.split("_")[1].split(".")[0])
                     if num > max_num:
                         max_num = num
                 except:
@@ -270,22 +311,19 @@ def save_image():
         image_file
         image.save(image_path)
 
-        return jsonify({'success': True})
+        return jsonify({"success": True})
     except Exception as e:
         app.logger.error(f"Error en /save_image: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 # =====================================================================
 # RUTA DE ESTADO EN LA RAÍZ (para healthcheck de Docker)
 # =====================================================================
-@app.route('/')
+@app.route("/")
 def root_health():
     """Endpoint de salud en la raíz para healthcheck de Docker"""
-    return jsonify({
-        'status': 'healthy',
-        'service': 'binit-ai-container'
-    })
+    return jsonify({"status": "healthy", "service": "binit-ai-container"})
 
 
 # Registrar el blueprint
