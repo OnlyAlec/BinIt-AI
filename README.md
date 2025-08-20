@@ -127,7 +127,7 @@ Abre tu navegador y ve a: `http://localhost:5000` o `http://[IP-de-tu-dispositiv
 
 ```
 binit_ai/
-├── 📜 app.py                    # Servidor Flask principal
+├── 📜 main.py                   # Servidor Flask principal
 ├── 🧠 model.h5                  # Modelo entrenado
 ├── 📋 requirements.txt          # Dependencias
 ├── 📁 static/
