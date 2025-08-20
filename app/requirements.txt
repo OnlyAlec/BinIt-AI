@@ -10,3 +10,4 @@ fugashi
 deep-translator
 dotenv
 pypinyin
+SpeechRecognition
