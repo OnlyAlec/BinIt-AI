@@ -1,7 +1,7 @@
 # 🌱 BinIt! - Clasificador Inteligente de Residuos
 
 <div align="center">
-  <img src="static/images/recycle.jpeg" alt="BinIt Logo" width="200"/>
+  <img src="app/app/static/images/recycle.jpeg" alt="BinIt Logo" width="200"/>
   
   **🌍 Cada escaneo cuenta para un mundo más limpio**
   
@@ -23,6 +23,7 @@ BinIt! es un sistema inteligente de clasificación de residuos que utiliza intel
 - **⚡ Tiempo Real**: Detección automática y procesamiento instantáneo
 - **🔧 Flexible**: Compatible con Raspberry Pi 5 y otros microcontroladores
 - **🌐 Accesible**: Servidor web local para múltiples usuarios
+- **🔄 Re-entrenamiento**: El sistema aprende de correcciones del usuario
 
 ## ♻️ Cómo Usar BinIt!
 
@@ -36,14 +37,8 @@ BinIt! es un sistema inteligente de clasificación de residuos que utiliza intel
 6. **✅ Confirmación**: Confirma si es correcto o proporciona feedback
 
 <div align="center">
-  <img src="static/images/MiniManualUsuario.png" alt="Manual" style="border-radius: 20px"/>
+  <img src="app/app/static/images/MiniManualUsuario.png" alt="Manual" style="border-radius: 20px"/>
 </div>
-
-### Funciones Avanzadas
-
-- **🔄 Re-entrenamiento**: El sistema aprende de correcciones del usuario
-- **📈 Grad-CAM**: Visualización de qué partes de la imagen influyen en la decisión
-- **📱 Responsive**: Funciona en dispositivos móviles y tablets
 
 ## 🗂️ Categorías de Residuos Detectadas
 
@@ -73,7 +68,7 @@ BinIt! es un sistema inteligente de clasificación de residuos que utiliza intel
 ### 1. Clonar el Repositorio
 
 ```bash
-git clone https://github.com/onlyalec/binit_ai.git
+git clone https://github.com/OnlyAlec/BinIt-AI.git
 cd binit_ai
 ```
 
@@ -97,6 +92,7 @@ python app.py
 ```
 
 ### 5. Acceder a la Interfaz
+
 
 Abre tu navegador y ve a: `http://localhost:5000` o `http://[IP-de-tu-dispositivo]:5000`
 
